@@ -1,0 +1,58 @@
+(ns aoc.day11
+  (:require [aoc.utils :as u]
+            [clojure.string :as s]
+            [clojure.set :as cset]))
+
+(defn get-neighbours [field y x]
+  (->> (for [dy [y (dec y) (inc y)] dx [x (dec x) (inc x)]]
+         [(get-in field [dy dx]) dy dx])
+       next
+       (filter first)
+       (map (fn [[_ y x]] [y x]))))
+       
+
+;(get-neighbours aoc.core/dd 0 0)
+
+(defn run-step [field]
+  (let [all-points (for [y (range (count field)) x (range (count (get field y)))] [y x])]
+    (loop [flashes all-points]
+      (println "new ngbs" flashes)
+      (let [nfls
+            (for [[y x] flashes 
+                  :let [point (get-in field [y x])
+                         _ (vswap! point inc) ]
+                  :when (> @point 9)]
+               (do
+                 (vswap! point (constantly 0)) 
+                 [y x]))]
+        (when (not (empty? nfls))
+          (->> nfls
+               (map #(get-neighbours field (nth %1 0) (nth %1 1)))
+               (apply concat)
+               recur)
+          
+          )
+
+        ))
+    
+       
+
+    )
+  
+  )
+
+(defn load-data []
+  (let [data  (u/get-day-data 11 #(mapv (fn [v] (volatile! (Integer. (str v)))) (seq %1)) :test)
+        data (vec data) 
+        ]
+    data
+    ))
+
+(defn run-1 []
+  (let [data  (u/get-day-data 11 #(mapv (fn [v] (volatile! (Integer. (str v)))) (seq %1)) :test)
+        data (vec data) 
+        ]
+    data
+    ))
+
+
