@@ -38,12 +38,12 @@
         (recur new-field (cset/union flash-set fl-set) (dec n))))))
 
 (defn count-flashes [field n]
-  (loop [[ c _ field] [0 nil field] cnt n acc 0]
+  (loop [[c _ field] [0 nil field] cnt n acc 0]
+    (println "flashes " n c)
     (if (zero? cnt)
       (do
-        (println acc)
-        (print-field "aff" field) 
-        )
+        (println (+ c acc))
+        (print-field "aff" field))
       (recur (run-step field) (dec cnt) (+ acc c)))))
 
 (defn all-flash? [field]
@@ -58,16 +58,19 @@
 
 (defn load-data []
   (let [data  (u/get-day-data 11 #(mapv (fn [v] (Integer. (str v))) (seq %1)))
-        data (vec data) 
-        ]
+        data (vec data)] 
     data))
+
+(defn run-1 []
+  (let [data  (u/get-day-data 11 #(mapv (fn [v] (Integer. (str v))) (seq %1)))
+        data (vec data)]
+    (count-flashes data 100)))
 
 (defn run-2 []
   (let [data  (u/get-day-data 11 #(mapv (fn [v] (Integer. (str v))) (seq %1)))
-        data (vec data) 
-        ]
+        data (vec data)]
     data
-    (count-until-all-flash data )
-    ))
+    (count-until-all-flash data)))
+    
 
 

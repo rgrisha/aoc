@@ -31,10 +31,10 @@
 
 (defn run-1 []
   (let [data  (u/get-day-data 9 parse-line)
-        data (vec data)]
-    data
+        data (vec data)
+        pr (fn [t d] (println t d) d)]
     (->> (for [y (range (count data)) x (range (count (get data y)))] (get-neighbours data y x)) 
-         (filter identity)
+         (filter (fn [[ p & xs]] (< p (apply min xs))))
          (map first)
          (map inc)
          (reduce +))))
