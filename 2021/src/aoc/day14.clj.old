@@ -1,0 +1,145 @@
+(ns aoc.day14
+  (:require [aoc.utils :as u]
+            [clojure.string :as s]
+            [clojure.set :as cset]))
+
+
+(defn get-data []
+  (let [data  (u/get-day-data 14 #(s/split %1 #" -> "))
+        chain (ffirst data)
+        data (drop 2 data)]
+        
+   [(seq chain) (into {} (map (fn [[a b]] [(seq a) (first b)]) data))]))
+
+  
+(defn chain-replace [instr chain]
+  (first
+    (reduce (fn [[a n] v] (if-let [r (get instr [v (first n)])]
+                            [(conj (conj a v) r) (next n)] 
+                            [(conj a v)          (next n)]))
+            [[] (next chain)] 
+            chain))) 
+     
+    
+(defn run-1 []
+  (let [[chain instr] (get-data)
+        instr (into {} (map (fn [[[c1 c2] v]] [[c1 c2] v]) instr)) 
+        ;_ (println "c i " chain "---" instr "----" (chain-replace instr chain))      
+        chain (nth (iterate (partial chain-replace instr) chain) 10)
+        get-diff (fn [l] (- (second (last l)) (second (first l))))
+        _ (println "length of chain: " (count chain))]
+    (->> chain      
+         frequencies 
+         (sort-by second) 
+         get-diff)))
+
+
+(def chunk-size 16)
+
+(defn compress [ss]
+  (loop [comp-seq ss table [] idx {} comp-tape []]  
+    (let [[h t] (split-at chunk-size comp-seq)
+          h (into [] h)]
+      (if (empty? h)
+        [table comp-tape]
+        (if-let [pos (get idx h)] 
+          (recur t table idx (conj comp-tape pos)) 
+          (let [t-size (count table)]
+            (recur t (conj table h) (assoc idx h t-size) (conj comp-tape t-size))))))))
+
+(defn compress-chunk [ss tape table idx]
+  (let [[h t] (split-at chunk-size ss)
+        h (into [] h)
+        tail-count (count t)]
+    (if-let [pos (get idx h)] 
+      (if (> tail-count chunk-size) 
+        (recur t (conj tape pos) table idx)
+        [t (conj tape pos) table idx]) 
+      (let [table-size (count table)]
+        (if (> tail-count chunk-size)
+          (recur t (conj tape table-size) (conj table h) (assoc idx h table-size))
+          [t (conj tape table-size) (conj table h) (assoc idx h table-size)])))))
+
+
+(defn decompress-chunk [instr tape table]
+  ;(println "\n----decompressing chunk, tape: " tape "table size" (count table) "cur" (first tape))
+  (let [cur     (first tape)
+        f-chunk (nth table cur)] 
+    (if-let [nxt (next tape)] 
+      (let [sec     (first nxt) 
+            n-chunk (nth table sec)]
+        (if-let [v (get instr [(last f-chunk) (first n-chunk)])]
+          [(conj f-chunk v) nxt]
+          [f-chunk nxt]))
+      [f-chunk nil]))) 
+
+    
+(defn decompress-all [instr tape' table]
+  (loop [res [] tape tape']
+    ;(println "\n-here")
+    (let [[r nt] (decompress-chunk instr tape table)]
+      (if nt
+        (recur (concat res r) nt)
+        (concat res r)))))
+    
+(defn test-compression []
+  (let [[chain instr] (get-data)
+        instr (into {} (map (fn [[[c1 c2] v]] [[c1 c2] v]) instr)) 
+        ;_ (println "c i " chain "---" instr "----" (chain-replace instr chain))      
+        repl-fn (partial chain-replace instr)
+        chain-9 (nth (iterate repl-fn chain) 9)
+        chain-10 (repl-fn chain-9)
+        [c9-table c9-tape] (compress chain-9) 
+        chain10-repl (map repl-fn c9-table)
+        ;_ (println "c9 comp:" c9-tape c9-table "\n---\n" chain10-repl)
+        c10-dec (decompress-all instr c9-tape chain10-repl)] 
+    (println "checking if orig chain 10 equal to decomp: " (= chain-10 c10-dec) (count chain-10 ) (count c10-dec))
+    (println "\n c10 orig" chain-10)
+    (println "\n c10 dec" c10-dec)))  
+        
+
+(defn recompress-iteration [instr tape table]
+  (loop [comp-chain [] ntable [] ntape [] idx {} dtape tape]
+    (let [[dec-chunk next-dtape] (decompress-chunk instr dtape table)    
+          comp-chain (concat comp-chain dec-chunk)] 
+
+      (cond
+        (nil? next-dtape)
+        (let [[_ tape' table' _] (compress-chunk comp-chain ntape ntable idx)]
+          ;(println "end of chunk decompress" "table size " (count table') idx)
+          [tape' table'])
+        
+        
+        (< (count comp-chain) chunk-size) 
+        (recur comp-chain ntable ntape idx next-dtape)
+        
+        :else
+        (let [[tail tape' table' idx'] (compress-chunk comp-chain ntape ntable idx)]
+          (recur tail table' tape' idx' next-dtape))))))
+        
+        
+
+(defn iterate-with-compression [instr cchunk iterations-count]
+  (let [repl-fn (partial chain-replace instr)
+        [table' tape'] (compress cchunk)]        
+    (loop [tape tape' table table' cnt iterations-count]    
+      ;(println "done iteration " cnt "tape " tape "table " table)
+      (if (zero? cnt)
+        [tape table]
+        (let [[rtape rtable] (recompress-iteration instr tape table)
+              rtable (map repl-fn rtable)]
+          ;(println "after recompress " "tape" rtape "table" rtable "table size" (count rtable))
+          (recur rtape rtable (dec cnt)))))))
+
+      
+(defn run-2 []
+  (let [[chain instr] (get-data)
+        instr (into {} (map (fn [[[c1 c2] v]] [[c1 c2] v]) instr)) 
+        ;_ (println "c i " chain "---" instr "----" (chain-replace instr chain))      
+        repl-fn (partial chain-replace instr)
+        chain-10 (nth (iterate repl-fn chain) 10)
+        [c10-tape c10-table] (iterate-with-compression instr chain 10)
+        chain-10-dec (decompress-all instr c10-tape c10-table)]
+    
+    (println "is recompressed chain equal: " (= chain-10-dec chain-10) (count chain-10) (count chain-10-dec))))
+    
