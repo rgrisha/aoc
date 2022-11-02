@@ -17,9 +17,10 @@
           [[y x] {:v (get-in data [y x])}]))
       (update [0 0] #(assoc %1 :path [[0 0]] :min-v 0)))))
 
-(defn show [t a]
-  (println t a)
+(defn show [t f a]
+  (println t (f a))
   a)
+
 
 (defn find-shortest-node [nodes visited]
   (->> nodes
@@ -28,34 +29,36 @@
                       (not (nil? min-v)))))  
        (sort (fn [[_ {a :min-v}] [_ {b :min-v}]]  (compare a b)))
        (first)))
+       
+
+(defn find-shortest-node [nodes visited updated-nodes]
+  (let [fn-ret (fn [[k _]] (when k [k (get nodes k)]))]
+    (->> 
+      updated-nodes
+      (sort (fn [[_ v1] [_ v2]] (compare v1 v2)))
+      first
+      fn-ret))) 
+         
 
 (defn plus0 [a v] (+ (or a 0) v))
 
-(defn update-node [nodes key-of-node-to-update [n {min-v :min-v path :path} :as cn] path-weight-fn]
-  (let [upd-fn (fn [{min-vu :min-v :as upd-node}]
-                 (let [path-weight (path-weight-fn nodes key-of-node-to-update cn) 
-                       path-weight-from-current-node (plus0 min-v path-weight)]
-                   (if (or (nil? min-vu) (< path-weight-from-current-node min-vu)) 
-                     (assoc upd-node :min-v path-weight-from-current-node 
-                                     :path (conj (or path []) key-of-node-to-update))
-                     upd-node)))] 
-    (update nodes key-of-node-to-update upd-fn)))
+(defn update-node [nodes key-of-node-to-update [n {min-v :min-v path :path} :as cn] path-weight-fn updated-nodes]
+  (let [{min-vu :min-v :as upd-node} (get nodes key-of-node-to-update)
+        path-weight (path-weight-fn nodes key-of-node-to-update cn) 
+        path-weight-from-current-node (plus0 min-v path-weight)]
+    (if (or (nil? min-vu) (< path-weight-from-current-node min-vu)) 
+      [(assoc nodes key-of-node-to-update 
+                    (assoc upd-node :min-v path-weight-from-current-node 
+                                    :path (conj (or path []) key-of-node-to-update)))
+       (assoc updated-nodes key-of-node-to-update path-weight-from-current-node)]
+      [nodes updated-nodes])))
 
-
-(defn update-adjacent [current-node nodes visited neighbours-fn path-weight-fn]
+(defn update-adjacent [current-node nodes visited neighbours-fn path-weight-fn updated-nodes-i]
   (reduce 
-    (fn [nodes v] (update-node nodes v current-node path-weight-fn))
-    nodes
+    (fn [[nodes updated-nodes] v] 
+      (update-node nodes v current-node path-weight-fn updated-nodes))
+    [nodes updated-nodes-i]
     (neighbours-fn nodes visited current-node)))
-    
-
-(defn neighbours-fn-2 [nodes visited [[x y] _]]
-  (for [xn [(dec x) x (inc x)] 
-        yn [(dec y) y (inc y)] 
-        :when (and (not (and (= x xn) (= y yn)))  
-                   (not (contains? visited [xn yn])) 
-                   (contains? nodes [xn yn]))]
-    [xn yn]))
 
 (defn neighbours-fn [nodes visited [[x y] _]]
   (for [[xn yn] [[(dec x) y] [(inc x) y] [x (dec y)] [x (inc y)]]
@@ -67,19 +70,26 @@
   (get-in nodes [upd-node-id :v]))
 
 (defn calc-min-path [data start-node-id neighbours-fn path-weight-fn]
-  (loop [nodes data visited #{} current-node [start-node-id (get nodes start-node-id)]]
-    (let [nodes (update-adjacent current-node nodes visited neighbours-fn path-weight-fn)
-          current-node (find-shortest-node nodes visited)]
+  (loop [nodes data visited #{} current-node [start-node-id (get nodes start-node-id)] updated-nodes (assoc {} start-node-id 0)]
+    (let [[nodes updated-nodes] (update-adjacent current-node nodes visited neighbours-fn path-weight-fn updated-nodes)
+          current-node (find-shortest-node nodes visited updated-nodes)]
       (if current-node
-        (recur nodes (conj visited (first current-node)) current-node) 
+        (recur nodes (conj visited (first current-node)) current-node (dissoc updated-nodes (first current-node))) 
         nodes))))
         
 
-;620 too high
-(defn run-1 []
+;673 is the answer
+
+(require '[clj-async-profiler.core :as prof])
+
+(defn run-1-p []
   (let [data (get-data)
         nodes-with-min-paths (calc-min-path data [0 0] neighbours-fn path-weight-fn)]
     (get nodes-with-min-paths [99 99])))
+
+(defn run-1 []
+  ;(prof/profile (run-1-p))
+  (run-1-p))
 
 (defn test-algo []
   (let [test-data {0 {:next [1 7]}
