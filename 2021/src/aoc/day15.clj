@@ -48,8 +48,8 @@
         path-weight-from-current-node (plus0 min-v path-weight)]
     (if (or (nil? min-vu) (< path-weight-from-current-node min-vu)) 
       [(assoc nodes key-of-node-to-update 
-                    (assoc upd-node :min-v path-weight-from-current-node 
-                                    :path (conj (or path []) key-of-node-to-update)))
+                    (assoc upd-node :min-v path-weight-from-current-node)) 
+                                    ;:path (conj (or path []) key-of-node-to-update)))
        (assoc updated-nodes key-of-node-to-update path-weight-from-current-node)]
       [nodes updated-nodes])))
 
@@ -123,5 +123,21 @@
             
     (calc-min-path test-data 0 neighbours-fn path-weight-fn))) 
          
+(defn mod91 [x]
+  (let [m (mod x 9)]
+    (if (zero? m) 9 m)))
                   
+(defn make-data-5x [data]
+  (into {}
+    (for [xm [0 1 2 3 4] ym [0 1 2 3 4] [[x y] {v :v}] data
+          :let [v-inc (+ xm ym)]] 
+      [[(+ (* 100 xm) x) (+ (* 100 ym) y)] {:v (mod91 (+ v-inc v))}])))
+  
 
+;:min-v = 2893
+(defn run-2 []
+  (let [data (get-data)
+        big-data (make-data-5x data)
+        big-data (update big-data [0 0] #(assoc %1 :path [[0 0]] :min-v 0))
+        nodes-with-min-paths (calc-min-path big-data [0 0] neighbours-fn path-weight-fn)]
+    (get nodes-with-min-paths [499 499])))
