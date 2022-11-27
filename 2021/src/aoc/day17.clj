@@ -3,65 +3,79 @@
             [clojure.string :as s]
             [clojure.set :as cset]))
 
-;target area: x=29..73, y=-248..-194
-(def target-area {:x {:from 29 :to 73} :y {:from -248 :to -194}})
+;target area: x=60..94, y=-171..-136
+(def input-data
+  (let [in (slurp "./resources/day-17.txt")
+        ;in "target area: x=20..30, y=-10..-5" ;test
+        [from-x to-x from-y to-y] (map read-string (rest (first (re-seq #"target area: x=(-?\d+)..(-?\d+), y=(-?\d+)..(-?\d+).*" in))))]
+    {:from-x from-x :to-x to-x :from-y from-y :to-y to-y})) 
 
-(def min-x 29)
-(def min-y -248)
-(def max-x 73)
+
+(def min-x (:from-x input-data))
+(def min-y (:from-y input-data)) 
+(def max-x (:to-x input-data)) 
+(def max-y (:to-y input-data))
 
 (defn is-in-target? [x y]
-  (and (>= x 29)
-       (<= x 73)
-       (>= y -248)
-       (<= y -194)))
+  (and (>= x min-x)
+       (<= x max-x)
+       (>= y min-y)
+       (<= y max-y)))
 
 (defn is-in-target-x [x]
-  (and (>= x 29))
-       (<= x 73))
+  (and (>= x min-x)
+       (<= x min-y)))
 
-(defn status? [x y]
-  (cond (or (< y min-y) (> x 73)) :out
-        (is-in-target? x y) :ok
-        :else :in))
+(defn iabs [x]
+  (if (< x 0) (* x -1) x))
 
-(defn move-x-until-target [x']
-  (loop [x x' acc 0]
-    (if (zero? x)
-      (if (< acc min-x) x' nil)
-      (recur (dec x) (+ acc x)))) )
 
-(defn find-min-x []
-  (->> (range 1 (inc min-x))
-       (map move-x-until-target)
-       (filter (comp not nil?))
-       (apply max)))
+(defn dist-x [x]
+  (-> x
+      (* (inc x))
+      (/ 2)
+      inc))
 
+(defn find-min-valid-x []
+  (loop [x 1] 
+    (if (< (dist-x x) min-x)
+      (recur (inc x))
+      x)))
+
+(defn find-max-valid-x [min-valid-x]
+  (loop [x min-valid-x] 
+      (if (> (dist-x x) max-x)
+        x
+        (recur (inc x)))))
+
+
+(defn run-1 []
+  (if (> min-y 0) 
+    (throw (Exception. "Algorithm in this code is was not considered for positive y values"))
+    (println "run-1 answer: " (quot (* min-y (inc min-y)) 2))))
+
+
+(defn calc-target-pos [start-x start-y end-x end-y]
+  (loop [x start-x y start-y xa 0 ya 0]
+    (let [xa (+ xa x) ya (+ ya y)]
+      (cond
+        (is-in-target? xa ya) [start-x start-y]
+        (or (> x end-x) (< y end-y)) nil
+        :default (recur (if (zero? x) x (dec x)) (dec y) xa ya)))))
 
 (defn gen-positions []
-  (for [y' (range min-y 248) x' (range (inc (find-min-x)) (inc max-x))]
-    (do
-      (println "y" y')
-      (loop [x-acc 0 y-acc 0 xd x' yd y']
-        (case (status? x-acc y-acc)
-          :out nil
-          :ok [x' y']
-          (recur (+ x-acc xd) (+ y-acc yd) (if (zero? xd) xd (dec xd)) (dec yd)))))))
-
-;247 too low
-
-(defn gen-y-pos [y']
-  (loop [acc 0 accl [] dy y']
-    (if (< acc min-y)
-      accl
-      (recur (+ acc dy) (conj accl (+ acc dy)) (dec dy))) ))
+  (let [start-x (find-min-valid-x)
+        start-y min-y
+        end-x   max-x
+        end-y   (inc (* -1 min-y))]
+    (for [x (range start-x (inc end-x))
+          y (range start-y (inc end-y))]
+      (calc-target-pos x y max-x min-y)))) 
 
 (defn run-2 []
   (->> (gen-positions)
        (filter (comp not nil?)) 
-       frequencies
-       keys
-       count
-       )
+       count))
+       
      
-  )
+  
