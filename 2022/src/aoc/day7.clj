@@ -46,30 +46,27 @@
             :else
             (throw (Exception. (str "Should not reach this line " a " log " log)))))))
 
-(defn get-size-of-directory [[dn dirs files]]
-  ;(println "getting size for " dn "+" dirs "+" files)
+(defn get-size-of-directory [[_ dirs files]]
   (+ (reduce (fn [a v] (+ a (first v))) 0 files)
      (reduce (fn [a v] (+ a (get-size-of-directory v))) 0 dirs)))
 
-(def min-size 100000)
-
-(defn walk-small-sizes [dirs acc]
+(defn walk-sizes [ff dirs acc]
   (let [dir-sizes (map get-size-of-directory dirs)
-        sum-size (reduce + 0 dir-sizes)
-        ;_ (println "sum size " sum-size)
-        new-acc (concat acc (filter #(<= % min-size) dir-sizes))]
-     (reduce (fn [a v] (walk-small-sizes v a)) new-acc (map second dirs)))) 
+        new-acc (concat acc (filter ff dir-sizes))]
+     (reduce (fn [a v] (walk-sizes ff v a)) new-acc (map second dirs)))) 
    
-  
   
 (defn run-1 [ds]
   (let [log (get-data ds)
         tree (second (second (build-tree log [nil [] []])))
-        sizes (walk-small-sizes tree [])]
+        sizes (walk-sizes #(<= % 100000) tree [])]
    (apply + sizes)))
   
 (defn run-2 [ds] 
   (let [log (get-data ds)
         tree (second (second (build-tree log [nil [] []])))
-        unused-space (- 70000000 (get-size-of-directory [nil tree []]))]
-    unused-space))
+        unused-space (- 70000000 (get-size-of-directory [nil tree []]))
+        _ (println "unused space: " unused-space)
+        sizes (sort (walk-sizes (constantly true) tree []))
+        suitable-dirs (drop-while #(< (+ unused-space %) 30000000) sizes)]
+    (first suitable-dirs))) 
