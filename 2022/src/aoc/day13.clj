@@ -15,10 +15,10 @@
 
 
 (defn compare-values [l r]
-  (println "parent " l r)
+  ;(println "parent " l r)
   (cond (and (sequential? l) (sequential? r)) 
         (loop [l l r r]
-          (println "loop " l r)
+          ;(println "loop " l r)
           (if (and (nil? l) (nil? r))
             ;(recur (next l) (next r))
             nil
@@ -55,3 +55,17 @@
         m (map-indexed (fn [i [l r]] [(inc i) (compare-values l r)]) data)
         m (filter second m)]
     (reduce + (map first m)))) 
+
+
+(defn run-2 [& ds]
+  (let [data (get-data (first ds))
+        data (apply concat data)
+        data (cons [[2]] data)
+        data (cons [[6]] data)
+        sorted (sort (fn [a b] (if (compare-values a b) -1 1)) data)]
+    (->> sorted
+         (map-indexed (fn [i v] [(inc i) (or (= v [[2]]) (= v [[6]]))])) 
+         (filter second) 
+         (map first)
+         (apply *)))) 
+    
