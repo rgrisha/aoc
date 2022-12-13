@@ -3,7 +3,7 @@
             [clojure.string :as s]
             [clojure.java.io :as io]))
 
-(defn parse-operation [sop]
+(defn make-op-fn-1 [sop]
   (let [[a1 op a2] (s/split sop #" ")
         op-fn (get {"+" + "*" *} op)]
     (fn [a]
@@ -13,7 +13,7 @@
 (def parse-rules
   [[#"Monkey (\d+).*" (fn [a matches] (assoc a :monkey (Integer/parseInt (second matches))))]
    [#"  Starting items: (.*)" (fn [a matches] (assoc a :items (mapv (fn [s] (parse-long s)) (s/split (second matches) #", "))))]
-   [#"  Operation: new = (.*)" (fn [a matches] (assoc a :op (parse-operation (second matches))))]
+   [#"  Operation: new = (.*)" (fn [a matches] (assoc a :op (second matches)))]
    [#"  Test: divisible by (\d+)" (fn [a matches] (assoc a :test (parse-long (second matches))))]
    [#"    If true: throw to monkey (\d+)" (fn [a matches] (assoc a :if-true (Integer/parseInt (second matches))))]
    [#"    If false: throw to monkey (\d+)" (fn [a matches] (assoc a :if-false (Integer/parseInt (second matches))))]])
@@ -64,6 +64,7 @@
 
 (defn run-fn [times worry-fn & ds]
   (let [monkeys (get-data (first ds))
+        monkeys (mapv (fn [m] (update m :op (fn [o] (make-op-fn-1 o)))) monkeys)
         turn-fn (turn-gen worry-fn)
         round-fn (round-gen turn-fn)]
     (->> (iterate round-fn monkeys)
@@ -74,8 +75,10 @@
          (take 2) 
          (apply *))))
 
+;62491
 (defn run-1 [& ds]
   (run-fn 20 #(quot % 3) (first ds)))
+
 
 (defn turn-2 [monkey-num monkeys]
   (let [monkey (nth monkeys monkey-num)
@@ -85,14 +88,27 @@
         (update-in monkeys [monkey-num :items] (constantly []))
         (let [item (first items)
               worry-level ((:op monkey) item)]
-          (if (= 0 (mod worry-level (:test monkey)))
+          (if (= 0 (get worry-level (:test monkey)))
             (recur (next items) (update-monkey monkeys monkey-num (:if-true monkey) worry-level))
             (recur (next items) (update-monkey monkeys monkey-num (:if-false monkey) worry-level))))))))
 
+(defn make-item [mods i]
+  (reduce (fn [a v] (assoc a v (mod i v))) {} mods))
+
+(defn make-op-fn-2 [mods sop]
+  (let [[a1 op a2] (s/split sop #" ")
+        op-fn (get {"+" + "*" *} op)]
+    (fn [wls]
+      (if (and (= a1 "old") (= a2 "old"))
+        (reduce (fn [a v] (assoc a v (mod (* (get wls v) (get wls v)) v))) {} mods)
+        (reduce (fn [a v] (assoc a v (mod (op-fn (get wls v) (Integer/parseInt a2)) v))) {} mods)))))
 
 (defn run-2 [& ds]
   (let [monkeys (get-data (first ds))
         mods (mapv :test monkeys)
+        monkeys (mapv (fn [m] (update m :items (fn [items] (map (fn [i] (make-item mods i)) items)) )) monkeys)
+        _ (println monkeys)
+        monkeys (mapv (fn [m] (update m :op (fn [mm] (make-op-fn-2 mods mm)))) monkeys)
         round-fn (round-gen turn-2)]
     (->> (iterate round-fn monkeys)
          (drop 10000)
