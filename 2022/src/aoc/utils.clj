@@ -1,6 +1,8 @@
 (ns aoc.utils
   (:require [clojure.java.io :as io]
-            [clojure.string :as s]))
+            [clojure.string :as s])
+  (:import (javax.swing JFrame JPanel)
+           (java.awt Graphics Graphics2D)))
 
 (defn get-day-data 
   ([number f t]
@@ -20,4 +22,19 @@
     
   ([number f init-elem]
    (get-day-data-reduce number f init-elem nil)))
+
+
+(defn paint2d []
+  (let [panel (proxy [JPanel] []
+                (paint [^Graphics2D g]
+                  (. g fillRect 100 50 60 80)))]
+    panel))
+  
+
+(defn make-canvas [x y]
+  (doto (new JFrame "Clojure")
+        (.add (paint2d))
+        (.setSize 550 250)
+        (.setVisible true)
+        (.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE)))
 
