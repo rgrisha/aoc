@@ -9,7 +9,7 @@
    (let [dd (u/get-day-data 6 parse-data (first params))]
      (map (fn [a b] [a b]) (first dd) (second dd)))) 
 
-;(get-data :test)
+(get-data :test)
 
 (defn travel-distances [time-max]
   (->> (range 1 time-max)

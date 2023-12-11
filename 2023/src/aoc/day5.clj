@@ -70,8 +70,8 @@
               (cons [(+ dest (- start src)) size] ranges)
               (recur
                 (cons [(+ dest (- start src)) cnt])
-                ?rest-start
-                ?rest-size))))))))
+                :q ;?rest-start
+                :q :q)))))))) ;?rest-size))))))))
 
 ;  
 ; 50 98 2

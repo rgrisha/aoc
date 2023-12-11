@@ -12,8 +12,8 @@
         win-nums (map parse-long (s/split (s/trim r) #" +"))] 
     [(str card) [card-nums win-nums]]))
   
-(defn get-data [] 
-  (u/get-day-data 4 line-fn)) 
+(defn get-data [& args] 
+  (u/get-day-data 4 line-fn (first args))) 
 
 (defn winning-points [[_ [card-nums win-nums]]]
   (let [common-nums (cs/intersection (into #{} card-nums) (into #{} win-nums))
@@ -50,21 +50,24 @@
     (game-fn 1)))
 
 (defn game-2-2 [cards]
-  (let [points-fn (winning-numbers-for-card cards)]
+  (let [cards-cnt (count cards)
+        _ (println "cards count" cards-cnt)
+        points-fn (winning-numbers-for-card cards)]
     (loop [i 1 freqs [{1 1}]]
       ;(println "layer " i prev-freqs)
-      (let [prev-freqs (first freqs)
-            nf (mapcat (fn [[k v]] (map (fn [a] {a v} ) (points-fn k))) prev-freqs)]
-        (println "nf " nf "prev" prev-freqs "nf merged" (apply merge-with + nf) "recur with " (merge-with + {(inc i) 1} (apply merge-with + nf)))
-        ;(read-line)
-        (if (seq nf) 
-          (recur (inc i) (cons (merge-with + {(inc i) 1} (apply merge-with + nf)) freqs))
-          (cons {(inc i) 1} freqs))))))
-                          
+      
+      (if (< i cards-cnt)
+        (let [prev-freqs (first freqs)
+              nf (mapcat (fn [[k v]] (map (fn [a] {a v} ) (points-fn k))) prev-freqs)]
+          (println i "nf " nf "prev" prev-freqs "nf merged" (apply merge-with + nf) "recur with " (merge-with + {(inc i) 1} (apply merge-with + nf)))
+          
+          (recur (inc i) (cons (merge-with + {(inc i) 1} (apply merge-with + nf)) freqs)))
+        freqs))))
+                            
 
 ; 3001829 too low
-(defn part-2 []
-  (->> (get-data)
+(defn part-2 [& args]
+  (->> (get-data (first args))
        (into {})
        (game-2-2) 
        (apply merge-with +)
