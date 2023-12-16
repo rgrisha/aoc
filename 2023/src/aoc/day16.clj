@@ -2,54 +2,95 @@
   (:require [clojure.string :as s]
             [aoc.utils      :as u]))
 
-(def els {\- {:r :r :l :l :u [:l :r] :d [:l :r]}
-          \\ {:d :r :l :u :u :l :r :d}
-          \| {:u :u :d :d :l [:u :d] :r [:u :d]}
-          \/ {:u :r :l :d :d :l :r :u}})
 
 (defn line-fn [s]
-  (mapv #(els %) s))
+  (into [] s))
 
 (defn get-data [& args] 
   (u/get-day-data 16 line-fn (first args))) 
 
-(defn ppp [t x]
-  (println t x)
-  x)
-
 ;(get-data :test)
 
-(defn pos-from-direction [y x d]
-  (case d
-        :u [(dec y) x]
-        :d [(inc y) x]
-        :l [y (dec x)]
-        :r [y (inc x)]))
+(defn go-r [[y x _]] [y (inc x) :r])
 
-(defn next-ray-step [emap [[y x] dir]]
-  (let [current ((emap y) x)] 
-    (if (nil? current)
-      [[(pos-from-direction y x dir) dir]]
-      (let [next-dirs (current dir)]
-        (if (keyword? next-dirs)
-          [[(pos-from-direction y x next-dirs) next-dirs]]
-          (mapv (fn [d] [(pos-from-direction y x d) d]) next-dirs))))))  
+(defn go-l [[y x _]] [y (dec x) :l])
 
- ;8250 too high 
+(defn go-u [[y x _]] [(dec y) x :u])
+
+(defn go-d [[y x _]] [(inc y) x :d])
+
+
+(defn calc-ray [rmap [y x d :as p]]
+  (let [cell ((rmap y) x)]
+    (case cell
+      \- 
+      (case d
+        :r [(go-r p)]
+        :l [(go-l p)]
+        :u [(go-l p) (go-r p)]
+        :d [(go-l p) (go-r p)])
+
+      \| 
+      (case d
+        :u [(go-u p)]
+        :d [(go-d p)]
+        :l [(go-d p) (go-u p)]
+        :r [(go-d p) (go-u p)])
+
+      \\ 
+      (case d
+        :u [(go-l p)]
+        :d [(go-r p)]
+        :l [(go-u p)]
+        :r [(go-d p)])
+
+      \/ 
+      (case d
+        :u [(go-r p)]
+        :d [(go-l p)]
+        :l [(go-d p)]
+        :r [(go-u p)])
+
+      \.
+      (case d
+        :u [(go-u p)]
+        :d [(go-d p)]
+        :l [(go-l p)]
+        :r [(go-r p)]))))
+
+
+(defn calc-rays [rmap rays]
+  (mapcat (fn [r] (calc-ray rmap r)) rays))
+
+(defn ray-affection-fn [rmap maxy maxx starting-ray]
+  (loop [rays [starting-ray] visited-tiles #{starting-ray}]
+    (if (seq rays)
+      (let [next-rays (calc-rays rmap rays)
+            next-rays (filter (fn [[y x _]] (and (>= x 0) (>= y 0) (< x maxx) (< y maxy))) next-rays)
+            next-rays (remove visited-tiles next-rays)]
+        (recur next-rays (into visited-tiles next-rays)))
+      (count (into #{} (map (fn [[y x _]] [y x]) visited-tiles))))))
+
 (defn part-1 [& args]
-  (let [emap (get-data (first args))
-        first-ray [[[0 0] :r]]
-        maxy (count emap)
-        maxx (count (first emap))]
-    (loop [rays first-ray i 0 visited-tiles #{first-ray}]    
-      ;(println "rays:" rays)
-      ;(when (= 32 (.read *in*)) (throw (java.lang.Exception.  (str "stop" (count-tiles emap)))))
-      (if (seq rays)
-        (let [next-rays-steps (mapcat (fn [r] (next-ray-step emap r)) rays)
-              next-rays-steps (filter (fn [[[y x] _]] (and (>= y 0) (>= x 0) (< x maxx) (< y maxy))) next-rays-steps)
-              next-rays-steps (remove #(visited-tiles %) next-rays-steps)]
-          (recur next-rays-steps (inc i) (into visited-tiles next-rays-steps)))
+  (let [rmap (get-data (first args))
+        maxy (count rmap)
+        maxx (count (first rmap))]
+    (ray-affection-fn rmap maxy maxx [0 0 :r])))
 
-        (count (into #{} (map first visited-tiles)))))))  
+(defn gen-starting-pos [maxy maxx]
+  (let [last-y (dec maxy)
+        last-x (dec maxx)]
+    (concat (map (fn [y] [y 0 :r])      (range maxy))
+            (map (fn [y] [y last-x :l]) (range maxy))
+            (map (fn [x] [0 x :d])      (range maxx))
+            (map (fn [x] [last-y x :u]) (range maxx)))))
 
+
+;8434 too low
+(defn part-2 [& args]
+  (let [rmap (get-data (first args))
+        maxy (count rmap)
+        maxx (count (first rmap))
+        ray-starting-positions (gen-starting-pos maxy maxx)]
+    (reduce max (map (fn [sp] (ray-affection-fn rmap maxy maxx sp)) ray-starting-positions))))
 
