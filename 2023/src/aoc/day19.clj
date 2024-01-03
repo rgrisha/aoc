@@ -85,73 +85,65 @@
 
 ; ---------------------------------
 
-(defn tree-from-pipelines [wks wk-name]
+(defn apply-formula [[v op n] ranges]
+  (let [range (ranges v)
+        formulas {"<"  (fn [v] (< v n))
+                  ">"  (fn [v] (> v n))}] 
+    (assoc ranges v (filter (formulas op) range)))
+
+ (defn tree-from-pipelines [wks wk-name]
   (let [resolve-action (fn [label {cond :cond-save next-act :action}]
                          (if (keyword? next-act)
                             [label cond next-act]
                             [label cond (tree-from-pipelines wks (:next next-act))]))
         conds (mapv #(dissoc % :cond) (get wks wk-name))
-        [conds unsat-cond] (split-at (dec (count conds)) conds)
-        unsat-cond (first unsat-cond)]
+        [conds [unsat-cond & _]] (split-at (dec (count conds)) conds)]
 
      (conj
        (mapv (fn [cnd] (resolve-action :sat cnd)) conds)
-       (resolve-action :unsat (assoc unsat-cond :cond-save (mapv :cond-save conds))))))
-
-(defn mult-val [m]
-  (apply * (map count (vals m))))
-
-(defn inv-formula [[v op n]]
-  [v ({"<" ">="
-       ">" "<="
-       "<=" ">"
-       ">=" "<"} op) n])
-
-(defn apply-formula [[v op n] ranges]
-  (let [range (ranges v)
-        formulas {"<"  (fn [v] (< v n))
-                  ">"  (fn [v] (> v n)) 
-                  "<=" (fn [v] (<= v n))
-                  ">=" (fn [v] (>= v n))}]
-    (assoc ranges v (filter (formulas op) range))))
-    
-(comment
-  (defn walk-tree [[ctype fml t] ranges]
-    (println "entering walk ttree " ctype fml t ranges)
-    (case ctype
-          :sat   (case t 
-                   :accept (-> fml (apply-formula ranges) mult-val)
-                   :reject (-> fml inv-formula (apply-formula ranges) mult-val)
-                   (apply max (map (fn [tt] (walk-tree tt (apply-formula fml ranges))) t))) 
-          :unsat (apply max 
-                   (map (fn [f] (walk-tree [:sat (inv-formula f) t] ranges)) fml))
-          (throw (Exception. (str "Bad type " ctype))))))
-
-(defn apply-inverted-formulas [fmls ranges]
-  (reduce (fn [r f] (apply-formula (inv-formula f) r)) ranges fmls)) 
-
-(defn walk-tree [[ctype fml t] ranges]
-  (case ctype
-        :sat   (case t 
-                 :accept [(-> fml (apply-formula ranges))]
-                 :reject nil
-                 (mapcat (fn [tt] (walk-tree tt (apply-formula fml ranges))) t)) 
-        :unsat (case t
-                 :accept [(-> fml (apply-inverted-formulas ranges))]
-                 :reject nil
-                 (mapcat (fn [tt] (walk-tree tt (apply-inverted-formulas fml ranges))) t)) 
-        (throw (Exception. (str "Bad type " ctype)))))
+       (resolve-action :unsat (assoc unsat-cond :cond-save (mapv :cond-save conds)))))))
 
 
+(defn calc-ranges [ranges cond-fn vn]
+  (if cond-fn
+    (let [rng (get ranges vn)
+          split-range (group-by cond-fn rng)
+          sat-range (get split-range true)
+          sat-ranges (assoc ranges vn sat-range)
+          unsat-range (get split-range false) 
+          next-ranges (assoc ranges vn unsat-range)]
+      [sat-ranges next-ranges])
+    [ranges nil]))
 
+(defn gen-walk-pipelines [wks]
+  (fn walk-pipeline [wk-name ranges]
+    (let [wk (wks wk-name)]
+      (loop [ranges ranges accepted-ranges '() rules wk]
+        (if rules
+          (let [{[vn cond-fn] :cond action :action} (first rules)
+                [sat-ranges next-ranges] (calc-ranges ranges cond-fn vn)]
+            (cond 
+              (= action :reject)
+              (recur next-ranges accepted-ranges (next rules))
 
-(defn part-2 [& args]
-  (let [[pipelines _] (get-data (first args))
+              (= action :accept)
+              (recur next-ranges (cons sat-ranges accepted-ranges) (next rules))
+
+              :else
+              (let [{next-wk :next} action]
+                (recur next-ranges 
+                       (concat accepted-ranges (walk-pipeline next-wk sat-ranges)) 
+                       (next rules)))))
+          accepted-ranges)))))
+      
+
+(defn part-2 [ftype & _]
+  (let [[pipelines _] (get-data ftype)
         pipelines (apply merge (mapv parse-pipeline pipelines))
-        tree (tree-from-pipelines pipelines "in")
-        _    (pp/pprint tree)
-        rng  (range 1 4001)]
-    (mapcat (fn [t] (walk-tree t {"x" rng "m" rng "a" rng "s" rng})) tree)))
-
-
+        init-range (range 1 4001)
+        _ (println pipelines)
+        accepted-ranges ((gen-walk-pipelines pipelines) "in" {"x" init-range "m" init-range "a" init-range "s" init-range})]
+    (apply + 
+      (map (fn [m] (apply * (map #(count (second %)) m))) 
+           accepted-ranges)))) 
 
