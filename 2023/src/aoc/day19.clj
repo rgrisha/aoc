@@ -85,25 +85,6 @@
 
 ; ---------------------------------
 
-(defn apply-formula [[v op n] ranges]
-  (let [range (ranges v)
-        formulas {"<"  (fn [v] (< v n))
-                  ">"  (fn [v] (> v n))}] 
-    (assoc ranges v (filter (formulas op) range)))
-
- (defn tree-from-pipelines [wks wk-name]
-  (let [resolve-action (fn [label {cond :cond-save next-act :action}]
-                         (if (keyword? next-act)
-                            [label cond next-act]
-                            [label cond (tree-from-pipelines wks (:next next-act))]))
-        conds (mapv #(dissoc % :cond) (get wks wk-name))
-        [conds [unsat-cond & _]] (split-at (dec (count conds)) conds)]
-
-     (conj
-       (mapv (fn [cnd] (resolve-action :sat cnd)) conds)
-       (resolve-action :unsat (assoc unsat-cond :cond-save (mapv :cond-save conds)))))))
-
-
 (defn calc-ranges [ranges cond-fn vn]
   (if cond-fn
     (let [rng (get ranges vn)
