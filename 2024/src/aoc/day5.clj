@@ -22,31 +22,27 @@
           (group-by first)
           (reduce-kv (fn [m k v] (assoc m k (into #{} (map second v)))) {}))})
 
+
 (defn check-before [not-before nums]
   (for [n (range 1 (count nums))
         o (range 0 n)]
-    (let [not-before-nums (get not-before (nth nums n))]
-      (if (nil? not-before-nums)
-        true
-        (not (contains? not-before-nums (nth nums o)))))))
+    (when-let [not-before-nums (get not-before (nth nums n))]
+      (when (contains? not-before-nums (nth nums o))
+        n))))
 
 
-;(let [[_ r p] (get-data :test)
-;      {:keys [not-before not-after]} (compile-rules r)))
-;  (check-after not-after [ "75" "47" "61" "53" "29"]))
 
 (defn check-after [not-after nums]
   (for [n (range 0 (dec (count nums)))
         o (range n (count nums))]
-    (let [not-after-nums (get not-after (nth nums n))]
-      (if (nil? not-after-nums)
-        true
-        (not (contains? not-after-nums (nth nums o)))))))
+    (when-let [not-after-nums (get not-after (nth nums n))]
+      (when (contains? not-after-nums (nth nums o))
+        n))))
 
 (defn pages-ok? [not-before not-after pages-line]
   (and
-    (every? true? (check-before not-before pages-line))
-    (every? true? (check-after not-after pages-line))))
+    (every? nil? (check-before not-before pages-line))
+    (every? nil? (check-after not-after pages-line))))
 
 (defn get-middle [pages]
   (nth pages (/ (count pages) 2)))
@@ -59,3 +55,38 @@
          (map get-middle)
          (map (fn [s] (Integer. s)))
          (apply +))))
+
+(defn gen-sort-fn [not-before not-after]
+  (fn [a b]
+    (cond
+      (when-let [after-nums (get not-before a)]
+        (contains? after-nums b))
+      -1
+
+      (when-let [before-nums (get not-after b)]
+        (contains? before-nums a))
+      -1
+
+      (when-let [before-nums (get not-after a)]
+        (contains? before-nums b))
+      1
+
+      (when-let [after-nums (get not-before b)]
+        (contains? after-nums a))
+      1
+
+      :else
+      0)))
+
+
+(defn part-2 [& t]
+  (let [[_ rules pages] (get-data (first t))
+        {:keys [not-before not-after]} (compile-rules rules)
+        sort-fn (gen-sort-fn not-before not-after)]
+    (->> pages
+         (remove (fn [l] (pages-ok? not-before not-after l)))
+         (map #(sort sort-fn %))
+         (map get-middle)
+         (map (fn [s] (Integer. s)))
+         (apply +))))
+
