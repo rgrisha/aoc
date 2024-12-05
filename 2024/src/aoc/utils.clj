@@ -32,14 +32,6 @@
       (.setContents (clipboard) selection selection)))
 
 
-(defn clipboard []
-  (.getSystemClipboard (java.awt.Toolkit/getDefaultToolkit)))
-
-
-
-
-
-
 (defn paint2d []
   (let [panel (proxy [JPanel] []
                 (paint [^Graphics2D g]
