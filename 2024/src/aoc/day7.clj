@@ -9,23 +9,22 @@
 (defn get-data [& t]
   (u/get-day-data 7 line-fn (first t)))
 
-(defn gen-universum-resuls [ops]
-  (fn universum [ll]
-    (let [[h & t] ll]
-      (if (seq t)
-        (let [rs (universum t)]
-          (apply concat
-            (map
-              (fn [op] (map (fn [r] (op r h)) rs))
-              ops)))
-        [h]))))
+(defn op-list-fn [op ll]
+  (map (fn [[a & [b & t]]] (cons (op a b) t)) ll))
+
+(defn gen-universum-fn [ops]
+  (let [u-fn (fn universum [ll]
+                (if (= 1 (count (first ll)))
+                  (map first ll)
+                  (universum (apply concat (map (fn [op] (op-list-fn op ll)) ops)))))]
+    (fn [l] (u-fn [l]))))
 
 (defn line-valid? [universum-fn l]
   (let [[h & t] l]
-    (some #(= h %) (universum-fn (reverse t)))))
+    (some #(= h %) (universum-fn t))))
 
 (defn part-1 [& t]
-  (let [universum-fn (gen-universum-resuls [+ *])]
+  (let [universum-fn (gen-universum-fn [+ *])]
     (->> (get-data (first t))
          (filter (fn [l] (line-valid? universum-fn l)))
          (map first)
@@ -35,7 +34,7 @@
   (Long. (str a b)))
 
 (defn part-2 [& t]
-  (let [universum-fn (gen-universum-resuls [+ * glue-fn])]
+  (let [universum-fn (gen-universum-fn [+ * glue-fn])]
     (->> (get-data (first t))
          (filter (fn [l] (line-valid? universum-fn l)))
          (map first)
