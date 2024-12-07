@@ -9,30 +9,36 @@
 (defn get-data [& t]
   (u/get-day-data 7 line-fn (first t)))
 
-(defn universum-results [l]
-  (let [[h & t] l]
-    (if (seq t)
-      (let [rs (universum-results t)]
-        (concat
-          (map (fn [r] (+ r h)) rs)
-          (map (fn [r] (* r h)) rs)))
-      [h])))
+(defn gen-universum-resuls [ops]
+  (fn universum [ll]
+    (let [[h & t] ll]
+      (if (seq t)
+        (let [rs (universum t)]
+          (apply concat
+            (map
+              (fn [op] (map (fn [r] (op r h)) rs))
+              ops)))
+        [h]))))
 
-(defn line-valid? [l]
+(defn line-valid? [universum-fn l]
   (let [[h & t] l]
-    (some #(= h %) (universum-results (reverse t)))))
-
-(defn prnn [p]
-  (println "p " p)
-  p)
+    (some #(= h %) (universum-fn (reverse t)))))
 
 (defn part-1 [& t]
-  (->> (get-data (first t))
-       (filter line-valid?)
-       (map first)
-       (apply +)))
+  (let [universum-fn (gen-universum-resuls [+ *])]
+    (->> (get-data (first t))
+         (filter (fn [l] (line-valid? universum-fn l)))
+         (map first)
+         (apply +))))
 
+(defn glue-fn [a b]
+  (Long. (str a b)))
 
-
+(defn part-2 [& t]
+  (let [universum-fn (gen-universum-resuls [+ * glue-fn])]
+    (->> (get-data (first t))
+         (filter (fn [l] (line-valid? universum-fn l)))
+         (map first)
+         (apply +))))
 
 
