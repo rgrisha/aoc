@@ -1,0 +1,8 @@
+svr: aaa bbb
+aaa: aa0 aa1
+aa0: fft
+aa1: fft
+fft: hu1 hu2
+hu1: dac
+hu2: dac
+dac: out
